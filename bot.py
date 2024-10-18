@@ -1,75 +1,42 @@
-#!/usr/bin/env python
-# pylint: disable=unused-argument
-# This program is dedicated to the public domain under the CC0 license.
-
-"""
-Simple Bot to reply to Telegram messages.
-
-First, a few handler functions are defined. Then, those functions are passed to
-the Application and registered at their respective places.
-Then, the bot is started and runs until we press Ctrl-C on the command line.
-
-Usage:
-Basic Echobot example, repeats messages.
-Press Ctrl-C on the command line or send a signal to the process to stop the
-bot.
-"""
-
 import logging
-import os
+from telegram import Update
+from telegram.ext import Application, ChatMemberHandler, CallbackContext
 
-from dotenv import load_dotenv
-from telegram import ForceReply, Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+# Activer les logs pour voir ce qui se passe
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-# set higher logging level for httpx to avoid all GET and POST requests being logged
-logging.getLogger("httpx").setLevel(logging.WARNING)
+# Votre token du BotFather
+TOKEN = '7356602517:AAHHzr4B6Z7WAvjduuJttXcrohpNRvPdhFQ'
 
-logger = logging.getLogger(__name__)
+async def welcome_message(update: Update, context: CallbackContext):
+    logging.info(f"New members joined: {update.chat_member.new_chat_members}")
+    
+    # Extraire l'utilisateur qui vient de rejoindre
+    for member in update.chat_member.new_chat_members:
+        user_id = member.id
+        first_name = member.first_name
 
+        # Debug: Imprimer dans le terminal pour vérifier
+        logging.info(f"Bienvenue à {first_name} (ID: {user_id})")
 
-# Define a few command handlers. These usually take the two arguments update and
-# context.
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
-    user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}!",
-        reply_markup=ForceReply(selective=True),
-    )
+        # Envoyer un message privé à l'utilisateur
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=f"Bienvenue {first_name} ! 🎉 Merci d'avoir rejoint notre canal. Si tu as des questions, n'hésite pas à demander."
+        )
 
+def main():
+    # Initialiser l'application (nouvelle approche dans la version 20.x)
+    application = Application.builder().token(TOKEN).build()
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /help is issued."""
-    await update.message.reply_text("Help!")
+    # Détecter l'arrivée de nouveaux membres dans le groupe
+    chat_member_handler = ChatMemberHandler(welcome_message)
 
+    # Ajouter les handlers
+    application.add_handler(chat_member_handler)
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo the user message."""
-    await update.message.reply_text(update.message.text)
+    # Démarrer le bot avec polling
+    application.run_polling()
 
-
-def main() -> None:
-    """Start the bot."""
-    load_dotenv()
-
-    # Create the Application and pass it your bot's token.
-    application = Application.builder().token(os.environ["TOKEN"]).build()
-
-    # on different commands - answer in Telegram
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-
-    # on non command i.e message - echo the message on Telegram
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-
-    # Run the bot until the user presses Ctrl-C
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
